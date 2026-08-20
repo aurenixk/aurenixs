@@ -72,10 +72,20 @@ module.exports = async function handler(request, response) {
 
         const n8nUrl = process.env.N8N_WEBHOOK_URL;
         if (n8nUrl) {
+            const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
+            if (!webhookSecret) {
+                return response.status(500).json({ error: "n8n webhook secret is not configured." });
+            }
+            const webhookPayload = JSON.stringify(order);
+            const webhookSignature = crypto.createHmac("sha256", webhookSecret).update(webhookPayload).digest("hex");
             await fetch(n8nUrl, {
                 method: "POST",
-                headers: { ...jsonHeaders(), "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET || "" },
-                body: JSON.stringify(order)
+                headers: {
+                    ...jsonHeaders(),
+                    "x-webhook-signature": webhookSignature,
+                    "x-webhook-signature-algorithm": "sha256"
+                },
+                body: webhookPayload
             });
         }
 
