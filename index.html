@@ -554,7 +554,11 @@
             <form id="checkoutForm" onsubmit="processOrder(event)">
                 <div class="form-group">
                     <label>Full Name</label>
-                    <input type="text" class="form-control" required value="Alex Morgan">
+                    <input type="text" id="checkoutName" class="form-control" required value="">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="checkoutEmail" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label>Shipping Address</label>
@@ -579,6 +583,13 @@
                         <option>UPI / Net Banking</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>Payment Currency</label>
+                    <select id="checkoutCurrency" class="form-control">
+                        <option value="INR">INR (Indian Rupees)</option>
+                        <option value="USD">USD (US Dollars)</option>
+                    </select>
+                </div>
                 <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; margin-top: 10px;">PLACE ORDER & PAY NOW</button>
             </form>
         </div>
@@ -587,6 +598,7 @@
     <!-- Toast Engine Container -->
     <div class="toast-container" id="toastContainer"></div>
 
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script>
         // STRICT OUTERWEAR ONLY DATABASE
         const products = [
@@ -901,13 +913,73 @@
             document.getElementById('checkoutModal').classList.add('active');
         }
 
-        function processOrder(e) {
+        async function processOrder(e) {
             e.preventDefault();
-            closeModal('checkoutModal');
-            cart = [];
-            updateCartUI();
-            showToast('🎉 Order Placed Successfully!');
-            toggleDrawer('accountDrawer');
+            if(!cart.length) {
+                showToast('Your bag is empty!');
+                return;
+            }
+
+            const form = e.currentTarget;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const customer = {
+                name: document.getElementById('checkoutName').value.trim(),
+                email: document.getElementById('checkoutEmail').value.trim()
+            };
+            submitButton.disabled = true;
+            submitButton.innerText = 'CONNECTING TO RAZORPAY...';
+
+            try {
+                const orderResponse = await fetch('/api/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: cart.map(item => ({ id: item.id, qty: item.qty })),
+                        currency: document.getElementById('checkoutCurrency').value,
+                        customer
+                    })
+                });
+                const orderData = await orderResponse.json();
+                if(!orderResponse.ok) throw new Error(orderData.error || 'Unable to create payment order.');
+
+                const razorpay = new Razorpay({
+                    key: orderData.keyId,
+                    amount: orderData.order.amount,
+                    currency: orderData.order.currency,
+                    name: 'DAYLOG Luxury',
+                    description: 'Luxury outerwear order',
+                    order_id: orderData.order.id,
+                    prefill: customer,
+                    theme: { color: '#e5b872' },
+                    handler: async function(payment) {
+                        const verificationResponse = await fetch('/api/verify-payment', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ...payment,
+                                amount: orderData.order.amount,
+                                currency: orderData.order.currency,
+                                items: orderData.items,
+                                customer
+                            })
+                        });
+                        const verification = await verificationResponse.json();
+                        if(!verificationResponse.ok) throw new Error(verification.error || 'Payment verification failed.');
+                        closeModal('checkoutModal');
+                        cart = [];
+                        updateCartUI();
+                        showToast('Order paid successfully!');
+                        toggleDrawer('accountDrawer');
+                    }
+                });
+                razorpay.on('payment.failed', () => showToast('Payment failed. Please try again.'));
+                razorpay.open();
+            } catch(error) {
+                showToast(error.message || 'Payment could not be started.');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerText = 'PLACE ORDER & PAY NOW';
+            }
         }
 
         // Toast Engine
