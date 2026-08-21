@@ -1,12 +1,9 @@
 const products = {
-    1: { title: "Double-Breasted Wool Trench Coat", price: 189.99 },
-    2: { title: "Vintage Italian Leather Biker Jacket", price: 229.99 },
-    3: { title: "Arctic Insulated Waterproof Parka", price: 159.99 },
-    4: { title: "Oversized Cashmere Mix Long Coat", price: 199.99 },
-    5: { title: "Tailored Structured Blazer Coat", price: 119.99 },
-    6: { title: "Kids Insulated Puffer Coat", price: 69.99 },
-    7: { title: "Heritage Belted Trench Coat", price: 179.99 },
-    8: { title: "Children's Shearling Layered Jacket", price: 79.99 }
+    "auradock-pro": { title: "AuraDock Pro", price: 2999 },
+    "focushub-pro": { title: "FocusHub Pro", price: 2499 },
+    "lumisphere": { title: "LumiSphere Ambient Light", price: 2199 },
+    "travelcore": { title: "TravelCore Tech Organizer", price: 1899 },
+    "nightdock": { title: "NightDock Station", price: 3299 }
 };
 
 function priceForItems(items) {
@@ -15,18 +12,19 @@ function priceForItems(items) {
     }
 
     return items.map(item => {
-        const product = products[Number(item.id)];
+        const product = products[String(item.id)];
         const quantity = Number(item.qty);
         if (!product || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
             throw new Error("Invalid cart item.");
         }
         return {
-            id: Number(item.id),
+            id: String(item.id),
             title: product.title,
             quantity,
+            option: String(item.selectedSize || item.option || "Standard").slice(0, 80),
             unit_amount: Math.round(product.price * 100)
         };
     });
 }
 
-module.exports = { priceForItems };
+module.exports = { products, priceForItems };

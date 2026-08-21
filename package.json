@@ -1,0 +1,9 @@
+{
+  "name": "aurenix-store",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vercel dev",
+    "check": "node --check api/_catalog.js && node --check api/create-order.js && node --check api/verify-payment.js && node --check api/products.js && node --check api/health.js && node --check api/webhook.js && node --check api/webhook-razorpay.js"
+  }
+}
